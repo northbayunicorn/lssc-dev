@@ -48,7 +48,7 @@ apt_package_check_list=(
 	php5-dev
 
 	# Extra PHP modules that we find useful
-	php5-memcache
+	#php5-memcache
 	php5-imagick
 	php5-mcrypt
 	php5-mysql
@@ -61,7 +61,7 @@ apt_package_check_list=(
 	nginx
 
 	# memcached is made available for object caching
-	memcached
+	#memcached
 
 	# mysql is the default database
 	mysql-server
@@ -188,20 +188,19 @@ if [[ $ping_result == *bytes?from* ]]; then
 
 	# COMPOSER
 	#
-	# Install Composer if it is not yet available.
-	if [[ ! -n "$(composer --version --no-ansi | grep 'Composer version')" ]]; then
+	# Install or Update Composer based on current state. Updates are direct from
+	# master branch on GitHub repository.
+	if [[ -n "$(composer --version --no-ansi | grep 'Composer version')" ]]; then
+		echo "Updating Composer..."
+		COMPOSER_HOME=/usr/local/src/composer composer self-update
+		COMPOSER_HOME=/usr/local/src/composer composer global update
+	else
 		echo "Installing Composer..."
 		curl -sS https://getcomposer.org/installer | php
 		chmod +x composer.phar
 		mv composer.phar /usr/local/bin/composer
-	fi
 
-	# Update both Composer and any global packages. Updates to Composer are direct from
-	# the master branch on its GitHub repository.
-	if [[ -n "$(composer --version --no-ansi | grep 'Composer version')" ]]; then
-		echo "Updating Composer..."
-		COMPOSER_HOME=/usr/local/src/composer composer self-update
-		COMPOSER_HOME=/usr/local/src/composer composer -q global require --no-update phpunit/phpunit:4.3.*
+		COMPOSER_HOME=/usr/local/src/composer composer -q global require --no-update phpunit/phpunit:4.2.*
 		COMPOSER_HOME=/usr/local/src/composer composer -q global require --no-update phpunit/php-invoker:1.1.*
 		COMPOSER_HOME=/usr/local/src/composer composer -q global require --no-update mockery/mockery:0.9.*
 		COMPOSER_HOME=/usr/local/src/composer composer -q global require --no-update d11wtq/boris:v1.0.8
@@ -281,9 +280,9 @@ echo " * /srv/config/php5-fpm-config/opcache.ini       -> /etc/php5/fpm/conf.d/o
 echo " * /srv/config/php5-fpm-config/xdebug.ini        -> /etc/php5/mods-available/xdebug.ini"
 
 # Copy memcached configuration from local
-cp /srv/config/memcached-config/memcached.conf /etc/memcached.conf
-
-echo " * /srv/config/memcached-config/memcached.conf   -> /etc/memcached.conf"
+# cp /srv/config/memcached-config/memcached.conf /etc/memcached.conf
+#
+# echo " * /srv/config/memcached-config/memcached.conf   -> /etc/memcached.conf"
 
 # Copy custom dotfiles and bin file for the vagrant user from local
 cp /srv/config/bash_profile /home/vagrant/.bash_profile
@@ -315,7 +314,7 @@ fi
 # Make sure the services we expect to be running are running.
 echo -e "\nRestart services..."
 service nginx restart
-service memcached restart
+# service memcached restart
 
 # Disable PHP Xdebug module by default
 php5dismod xdebug
@@ -390,16 +389,16 @@ if [[ $ping_result == *bytes?from* ]]; then
 
 	# Download and extract phpMemcachedAdmin to provide a dashboard view and
 	# admin interface to the goings on of memcached when running
-	if [[ ! -d /srv/www/default/memcached-admin ]]; then
-		echo -e "\nDownloading phpMemcachedAdmin, see https://code.google.com/p/phpmemcacheadmin/"
-		cd /srv/www/default
-		wget -q -O phpmemcachedadmin.tar.gz 'https://phpmemcacheadmin.googlecode.com/files/phpMemcachedAdmin-1.2.2-r262.tar.gz'
-		mkdir memcached-admin
-		tar -xf phpmemcachedadmin.tar.gz --directory memcached-admin
-		rm phpmemcachedadmin.tar.gz
-	else
-		echo "phpMemcachedAdmin already installed."
-	fi
+	# if [[ ! -d /srv/www/default/memcached-admin ]]; then
+	# 	echo -e "\nDownloading phpMemcachedAdmin, see https://code.google.com/p/phpmemcacheadmin/"
+	# 	cd /srv/www/default
+	# 	wget -q -O phpmemcachedadmin.tar.gz 'https://phpmemcacheadmin.googlecode.com/files/phpMemcachedAdmin-1.2.2-r262.tar.gz'
+	# 	mkdir memcached-admin
+	# 	tar -xf phpmemcachedadmin.tar.gz --directory memcached-admin
+	# 	rm phpmemcachedadmin.tar.gz
+	# else
+	# 	echo "phpMemcachedAdmin already installed."
+	# fi
 
 	# Checkout Opcache Status to provide a dashboard for viewing statistics
 	# about PHP's built in opcache.
@@ -456,89 +455,113 @@ if [[ $ping_result == *bytes?from* ]]; then
 	/srv/www/phpcs/scripts/phpcs -i
 
 	# Install and configure the latest stable version of WordPress
-	if [[ ! -d /srv/www/wordpress-default ]]; then
+	if [[ ! -d /srv/www/lssc-dev ]]; then
 		echo "Downloading WordPress Stable, see http://wordpress.org/"
 		cd /srv/www/
 		curl -L -O https://wordpress.org/latest.tar.gz
 		tar -xvf latest.tar.gz
-		mv wordpress wordpress-default
+		mv wordpress lssc-dev
 		rm latest.tar.gz
-		cd /srv/www/wordpress-default
-		echo "Configuring WordPress Stable..."
-		wp core config --dbname=wordpress_default --dbuser=wp --dbpass=wp --quiet --extra-php <<PHP
+		cd /srv/www/lssc-dev
+		echo "Configuring Core LSSC-dev WordPress..."
+		wp core config --dbname=lssc --dbuser=wp --dbpass=wp --quiet --extra-php <<PHP
 define( 'WP_DEBUG', true );
 PHP
-		wp core install --url=local.wordpress.dev --quiet --title="Local WordPress Dev" --admin_name=admin --admin_email="admin@local.dev" --admin_password="password"
+		wp core install --url=wordpress.lssc.dev --quiet --title="Learning Source of Sonoma County" --admin_name=admin --admin_email="admin@lssc.dev" --admin_password="password"
 	else
-		echo "Updating WordPress Stable..."
-		cd /srv/www/wordpress-default
+		echo "Updating LSSC-dev WordPress..."
+		cd /srv/www/lssc-dev
 		wp core upgrade
 	fi
 
-	# Test to see if an svn upgrade is needed
-	svn_test=$( svn status -u /srv/www/wordpress-develop/ 2>&1 );
-	if [[ $svn_test == *"svn upgrade"* ]]; then
-		# If the wordpress-develop svn repo needed an upgrade, they probably all need it
-		for repo in $(find /srv/www -maxdepth 5 -type d -name '.svn'); do
-			svn upgrade "${repo/%\.svn/}"
-		done
-	fi;
-
-	# Checkout, install and configure WordPress trunk via core.svn
-	if [[ ! -d /srv/www/wordpress-trunk ]]; then
-		echo "Checking out WordPress trunk from core.svn, see http://core.svn.wordpress.org/trunk"
-		svn checkout http://core.svn.wordpress.org/trunk/ /srv/www/wordpress-trunk
-		cd /srv/www/wordpress-trunk
-		echo "Configuring WordPress trunk..."
-		wp core config --dbname=wordpress_trunk --dbuser=wp --dbpass=wp --quiet --extra-php <<PHP
-define( 'WP_DEBUG', true );
-PHP
-		wp core install --url=local.wordpress-trunk.dev --quiet --title="Local WordPress Trunk Dev" --admin_name=admin --admin_email="admin@local.dev" --admin_password="password"
-	else
-		echo "Updating WordPress trunk..."
-		cd /srv/www/wordpress-trunk
-		svn up --ignore-externals
+	# Sorry, I find the Hello Dolly plugin to be annoying and crufty
+	echo "Uninstalling Unwanted Plugins..."
+	wp plugin uninstall hello
+	
+	# Install or ensure that plugins are installed and activated
+	# Event Espresso (latest version)
+	if ! wp plugin is-installed event-espresso-decaf; then
+		echo "Installing Event Espresso Plugin..."
+		wp plugin install event-espresso-decaf
+		echo "Activating Event Espresso..."
+		wp plugin activate event-espresso-decaf
 	fi
-
-	# Checkout, install and configure WordPress trunk via develop.svn
-	if [[ ! -d /srv/www/wordpress-develop ]]; then
-		echo "Checking out WordPress trunk from develop.svn, see http://develop.svn.wordpress.org/trunk"
-		svn checkout http://develop.svn.wordpress.org/trunk/ /srv/www/wordpress-develop
-		cd /srv/www/wordpress-develop/src/
-		echo "Configuring WordPress develop..."
-		wp core config --dbname=wordpress_develop --dbuser=wp --dbpass=wp --quiet --extra-php <<PHP
-// Allow (src|build).wordpress-develop.dev to share the same database
-if ( 'build' == basename( dirname( __FILE__) ) ) {
-	define( 'WP_HOME', 'http://build.wordpress-develop.dev' );
-	define( 'WP_SITEURL', 'http://build.wordpress-develop.dev' );
-}
-
-define( 'WP_DEBUG', true );
-PHP
-		wp core install --url=src.wordpress-develop.dev --quiet --title="WordPress Develop" --admin_name=admin --admin_email="admin@local.dev" --admin_password="password"
-		cp /srv/config/wordpress-config/wp-tests-config.php /srv/www/wordpress-develop/
-		cd /srv/www/wordpress-develop/
-		npm install &>/dev/null
-	else
-		echo "Updating WordPress develop..."
-		cd /srv/www/wordpress-develop/
-		if [[ -e .svn ]]; then
-			svn up
-		else
-			if [[ $(git rev-parse --abbrev-ref HEAD) == 'master' ]]; then
-				git pull --no-edit git://develop.git.wordpress.org/ master
-			else
-				echo "Skip auto git pull on develop.git.wordpress.org since not on master branch"
-			fi
-		fi
-		npm install &>/dev/null
+	
+	# WP Mail SMTP (latest version)
+	if ! wp plugin is-installed wp-mail-smtp; then
+		echo "Installing WP Mail SMTP..."
+		wp plugin install wp-mail-smtp
+		echo "Activating WP Mail SMTP..."
+		wp plugin activate wp-mail-smtp
 	fi
+	
+	# For good measure we will upgrade all plugins to the latest versions
+	wp plugin update --all
 
-	if [[ ! -d /srv/www/wordpress-develop/build ]]; then
-		echo "Initializing grunt in WordPress develop... This may take a few moments."
-		cd /srv/www/wordpress-develop/
-		grunt
-	fi
+# 	# Test to see if an svn upgrade is needed
+# 	svn_test=$( svn status -u /srv/www/wordpress-develop/ 2>&1 );
+# 	if [[ $svn_test == *"svn upgrade"* ]]; then
+# 		# If the wordpress-develop svn repo needed an upgrade, they probably all need it
+# 		for repo in $(find /srv/www -maxdepth 5 -type d -name '.svn'); do
+# 			svn upgrade "${repo/%\.svn/}"
+# 		done
+# 	fi;
+#
+# 	# Checkout, install and configure WordPress trunk via core.svn
+# 	if [[ ! -d /srv/www/wordpress-trunk ]]; then
+# 		echo "Checking out WordPress trunk from core.svn, see http://core.svn.wordpress.org/trunk"
+# 		svn checkout http://core.svn.wordpress.org/trunk/ /srv/www/wordpress-trunk
+# 		cd /srv/www/wordpress-trunk
+# 		echo "Configuring WordPress trunk..."
+# 		wp core config --dbname=wordpress_trunk --dbuser=wp --dbpass=wp --quiet --extra-php <<PHP
+# define( 'WP_DEBUG', true );
+# PHP
+# 		wp core install --url=local.wordpress-trunk.dev --quiet --title="Local WordPress Trunk Dev" --admin_name=admin --admin_email="admin@local.dev" --admin_password="password"
+# 	else
+# 		echo "Updating WordPress trunk..."
+# 		cd /srv/www/wordpress-trunk
+# 		svn up --ignore-externals
+# 	fi
+#
+# 	# Checkout, install and configure WordPress trunk via develop.svn
+# 	if [[ ! -d /srv/www/wordpress-develop ]]; then
+# 		echo "Checking out WordPress trunk from develop.svn, see http://develop.svn.wordpress.org/trunk"
+# 		svn checkout http://develop.svn.wordpress.org/trunk/ /srv/www/wordpress-develop
+# 		cd /srv/www/wordpress-develop/src/
+# 		echo "Configuring WordPress develop..."
+# 		wp core config --dbname=wordpress_develop --dbuser=wp --dbpass=wp --quiet --extra-php <<PHP
+# // Allow (src|build).wordpress-develop.dev to share the same database
+# if ( 'build' == basename( dirname( __FILE__) ) ) {
+# 	define( 'WP_HOME', 'http://build.wordpress-develop.dev' );
+# 	define( 'WP_SITEURL', 'http://build.wordpress-develop.dev' );
+# }
+#
+# define( 'WP_DEBUG', true );
+# PHP
+# 		wp core install --url=src.wordpress-develop.dev --quiet --title="WordPress Develop" --admin_name=admin --admin_email="admin@local.dev" --admin_password="password"
+# 		cp /srv/config/wordpress-config/wp-tests-config.php /srv/www/wordpress-develop/
+# 		cd /srv/www/wordpress-develop/
+# 		npm install &>/dev/null
+# 	else
+# 		echo "Updating WordPress develop..."
+# 		cd /srv/www/wordpress-develop/
+# 		if [[ -e .svn ]]; then
+# 			svn up
+# 		else
+# 			if [[ $(git rev-parse --abbrev-ref HEAD) == 'master' ]]; then
+# 				git pull --no-edit git://develop.git.wordpress.org/ master
+# 			else
+# 				echo "Skip auto git pull on develop.git.wordpress.org since not on master branch"
+# 			fi
+# 		fi
+# 		npm install &>/dev/null
+# 	fi
+#
+# 	if [[ ! -d /srv/www/wordpress-develop/build ]]; then
+# 		echo "Initializing grunt in WordPress develop... This may take a few moments."
+# 		cd /srv/www/wordpress-develop/
+# 		grunt
+# 	fi
 
 	# Download phpMyAdmin
 	if [[ ! -d /srv/www/default/database-admin ]]; then
